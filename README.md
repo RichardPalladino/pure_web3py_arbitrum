@@ -9,6 +9,6 @@ I've been pivoting back to pure web3.py lately, and I may even breakout the Hard
 
 ###  Plan / To-do:
 
-* Re-write a Uniswap V2-compatible pool scraping script that I have written to instead use web sockets and inter-process communication so I can test performance of all 3 types (http, ws, ipc) with my local node daemon/container.
+* Re-write a Uniswap V2-compatible pool scraping script that I have written to instead use web sockets and inter-process communication so I can test performance of all 3 types (http, ws, ipc) with my local node daemon/container..
 * Play with the performance of each of these basic provider types using different multi-threaded and/or concurrency methods to see if any one in particular works best.
 * Test the scripts with Python v3.11, PyPy, and Pyston (both full and lite versions) to see if there are any compatability issues with web3.py or my async/multi-threaded tests.
