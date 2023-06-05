@@ -1,4 +1,5 @@
 from time import perf_counter
+from math import round
 import asyncio
 import json
 import os
@@ -15,11 +16,15 @@ load_dotenv("./.env")
 W3_HTTP_PROVIDER = "http://127.0.0.1:8547"
 W3_WSS_PROVIDER = "ws://127.0.0.1:8548"
 
-IPC_PATH = "/home/user/.arbitrum/data/ipc/path"  # must have permission to access, read/write
-
-FACTORY_ABI = []
+IPC_PATH = (
+    "/home/user/.arbitrum/data/ipc/path"  # must have permission to access, read/write
+)
 
 LP_ABI = '[{"inputs":[],"payable":false,"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"spender","type":"address"},{"indexed":false,"internalType":"uint256","name":"value","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"sender","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount0","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"amount1","type":"uint256"},{"indexed":true,"internalType":"address","name":"to","type":"address"}],"name":"Burn","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"sender","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount0","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"amount1","type":"uint256"}],"name":"Mint","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"sender","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount0In","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"amount1In","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"amount0Out","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"amount1Out","type":"uint256"},{"indexed":true,"internalType":"address","name":"to","type":"address"}],"name":"Swap","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint112","name":"reserve0","type":"uint112"},{"indexed":false,"internalType":"uint112","name":"reserve1","type":"uint112"}],"name":"Sync","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"uint256","name":"value","type":"uint256"}],"name":"Transfer","type":"event"},{"constant":true,"inputs":[],"name":"DOMAIN_SEPARATOR","outputs":[{"internalType":"bytes32","name":"","type":"bytes32"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"MINIMUM_LIQUIDITY","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"PERMIT_TYPEHASH","outputs":[{"internalType":"bytes32","name":"","type":"bytes32"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"address","name":"","type":"address"}],"name":"allowance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"value","type":"uint256"}],"name":"approve","outputs":[{"internalType":"bool","name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"internalType":"address","name":"to","type":"address"}],"name":"burn","outputs":[{"internalType":"uint256","name":"amount0","type":"uint256"},{"internalType":"uint256","name":"amount1","type":"uint256"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"decimals","outputs":[{"internalType":"uint8","name":"","type":"uint8"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"factory","outputs":[{"internalType":"address","name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"getReserves","outputs":[{"internalType":"uint112","name":"_reserve0","type":"uint112"},{"internalType":"uint112","name":"_reserve1","type":"uint112"},{"internalType":"uint32","name":"_blockTimestampLast","type":"uint32"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"internalType":"address","name":"_token0","type":"address"},{"internalType":"address","name":"_token1","type":"address"}],"name":"initialize","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"kLast","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"internalType":"address","name":"to","type":"address"}],"name":"mint","outputs":[{"internalType":"uint256","name":"liquidity","type":"uint256"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"nonces","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"value","type":"uint256"},{"internalType":"uint256","name":"deadline","type":"uint256"},{"internalType":"uint8","name":"v","type":"uint8"},{"internalType":"bytes32","name":"r","type":"bytes32"},{"internalType":"bytes32","name":"s","type":"bytes32"}],"name":"permit","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"price0CumulativeLast","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"price1CumulativeLast","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"internalType":"address","name":"to","type":"address"}],"name":"skim","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"internalType":"uint256","name":"amount0Out","type":"uint256"},{"internalType":"uint256","name":"amount1Out","type":"uint256"},{"internalType":"address","name":"to","type":"address"},{"internalType":"bytes","name":"data","type":"bytes"}],"name":"swap","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[],"name":"sync","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"token0","outputs":[{"internalType":"address","name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"token1","outputs":[{"internalType":"address","name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"totalSupply","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"value","type":"uint256"}],"name":"transfer","outputs":[{"internalType":"bool","name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"value","type":"uint256"}],"name":"transferFrom","outputs":[{"internalType":"bool","name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"}]'
+ERC20_ABI = '[{"constant":false,"inputs":[{"name":"newImplementation","type":"address"}],"name":"upgradeTo","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"newImplementation","type":"address"},{"name":"data","type":"bytes"}],"name":"upgradeToAndCall","outputs":[],"payable":true,"stateMutability":"payable","type":"function"},{"constant":true,"inputs":[],"name":"implementation","outputs":[{"name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"newAdmin","type":"address"}],"name":"changeAdmin","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"admin","outputs":[{"name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"inputs":[{"name":"_implementation","type":"address"}],"payable":false,"stateMutability":"nonpayable","type":"constructor"},{"payable":true,"stateMutability":"payable","type":"fallback"},{"anonymous":false,"inputs":[{"indexed":false,"name":"previousAdmin","type":"address"},{"indexed":false,"name":"newAdmin","type":"address"}],"name":"AdminChanged","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"name":"implementation","type":"address"}],"name":"Upgraded","type":"event"}]'
+
+
+FACTORY_ABI = []
 FACTORY_ABI[
     0
 ] = '[{"inputs":[{"internalType":"address","name":"_feeToSetter","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"token0","type":"address"},{"indexed":true,"internalType":"address","name":"token1","type":"address"},{"indexed":false,"internalType":"address","name":"pair","type":"address"},{"indexed":false,"internalType":"uint256","name":"","type":"uint256"}],"name":"PairCreated","type":"event"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"allPairs","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"allPairsLength","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"tokenA","type":"address"},{"internalType":"address","name":"tokenB","type":"address"}],"name":"createPair","outputs":[{"internalType":"address","name":"pair","type":"address"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"feeTo","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"feeToSetter","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"address","name":"","type":"address"}],"name":"getPair","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"migrator","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"pairCodeHash","outputs":[{"internalType":"bytes32","name":"","type":"bytes32"}],"stateMutability":"pure","type":"function"},{"inputs":[{"internalType":"address","name":"_feeTo","type":"address"}],"name":"setFeeTo","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_feeToSetter","type":"address"}],"name":"setFeeToSetter","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_migrator","type":"address"}],"name":"setMigrator","outputs":[],"stateMutability":"nonpayable","type":"function"}]'
@@ -44,6 +49,7 @@ def serialize_sets(obj):  # so JSON can handle sets
 
     return obj
 
+
 def get_async_web3_provider():
     return AsyncWeb3(AsyncHTTPProvider(W3_HTTP_PROVIDER))
 
@@ -55,23 +61,39 @@ def get_web3_provider():
 def get_wss_provider():
     return Web3(Web3.WebsocketProvider(W3_WSS_PROVIDER))
 
+
 def get_ipc_provider():
     return Web3(Web3.IPCProvider(IPC_PATH))
 
-def get_deployed_factory() -> dict:
+
+def get_deployed_factory(w3) -> dict:
     global bogus_addresses
     factories = {}
-    active_network = network.show_active()
-    for dex, values in config["networks"][active_network]["markets"].items():
+
+    # load factory dict
+    with open("dexs.json", "r") as dex_file:
+        fact_dict = json.load(dex_file)
+
+    for dex, values in fact_dict:
         print(f"{dex} has {str(values)} values")
         try:
-            factory = interface.IUniswapV2Factory(values["factory"])
+            factory = w3.eth.contract(
+                address=values["factory"], abi=LP_ABI[values["fee_type"]]
+            )
+
             factories[values["factory"]] = {
                 "length": factory.allPairsLength(),
-                "solidly": values["solidly"],
+                "fee_type": values["fee_type"],
             }
+            if values["fee_type"] == 0:
+                factories[values["factory"]]["max_fee"] = values["max_fee"]
             if values["solidly"]:
-                factories[values["factory"]]["stableSwap"] = values["stableSwap"]
+                if values["stableSwap"]:
+                    factories[values["factory"]]["stable_swap"] = 2
+                else:
+                    factories[values["factory"]]["stable_swap"] = 1
+            else:
+                factories[values["factory"]]["stable_swap"] = 0
         except Exception as err:
             print(
                 f'Function "get_num_deployed" failed on {active_network} network {dex} factory, with the following error:\n{err}'
@@ -86,40 +108,43 @@ def get_deployed_factory() -> dict:
     return factories
 
 
-def get_pool_data(_address: str, _factory_data: dict) -> dict:
+def get_pool_data(_address, _factory_data, w3_provider) -> dict:
     result = None
     try:
-        _pool = interface.IUniswapV2Pair(_address)
-        tmp_token0_address = _pool.token0()
-        tmp_token1_address = _pool.token1()
-        if _factory_data["solidly"]:
-            if _factory_data["stableSwap"]:
-                if _pool.stableSwap():
-                    result = False
-                    print(f"{_address} is Solidly stable LP")
-                else:
-                    result = {
-                        "lp_address": _address,
-                        "tokens": [tmp_token0_address, tmp_token1_address],
-                        "reserves": _pool.getReserves(),
-                    }
+        pool = w3_provider.eth.contract(address=_address, abi=LP_ABI)
+        tmp_token0_address = pool.token0()
+        tmp_token1_address = pool.token1()
+        if _factory_data["stable_swap"] == 2:
+            if pool.stableSwap():
+                stable_pool = True
+                print(f"{_address} is Solidly stable LP")
             else:
-                if _pool.stable():
-                    result = False
-                    print(f"{_address} is Solidly stable LP")
-                else:
-                    result = {
-                        "lp_address": _address,
-                        "tokens": [tmp_token0_address, tmp_token1_address],
-                        "reserves": _pool.getReserves(),
-                    }
-
+                stable_pool = False
+        elif _factory_data["stable_swap"] == 1:
+            if pool.stable():
+                stable_pool = True
+                print(f"{_address} is Solidly stable LP")
+            else:
+                stable_pool = False
+        # do I need to do anything if stable_swap == 0 ?
         else:
-            result = {
-                "lp_address": _address,
-                "tokens": [tmp_token0_address, tmp_token1_address],
-                "reserves": _pool.getReserves(),
-            }
+            stable_pool = False
+
+        if _factory_data["fee_type"] == 0:
+            fee = _factory_data["max_fee"]
+        elif _factory_data["fee_type"] == 1:
+            fee = round((pool.swapFee() / 10000), 4)
+
+        result = {
+            "lp_address": _address,
+            "tokens": [tmp_token0_address, tmp_token1_address],
+            "reserves": pool.getReserves(),
+            "stable_pool": stable_pool,
+            "fee": fee,
+        }
+        if stable_pool:
+            result["stable_type"] = _factory_data["stable_swap"]
+
     except Exception as err:
         print(
             f'Received the following error when querying blockchain using "get_pool_data()" for {_address}:\n  {err}'
@@ -135,10 +160,10 @@ def get_pool_data(_address: str, _factory_data: dict) -> dict:
         return result
 
 
-def get_erc20_data(_address: str) -> dict:
+def get_erc20_data(_address, _w3) -> dict:
     result = None
     try:
-        tmp_token = interface.IERC20(_address)
+        tmp_token = w3.eth.contract(address=_address, abi=ERC20_ABI)
         result = {
             "symbol": tmp_token.symbol(),
             "name": tmp_token.name(),
@@ -161,29 +186,30 @@ def get_erc20_data(_address: str) -> dict:
 
 def main() -> None:
     global bogus_addresses
-    
+
     start_time = perf_counter()
     factory_lps = {}
     pairs = {}
     erc_20s = {}
-    
-    w3 = 
-    
-    factories = get_deployed_factory() # get a dictionary of all factories, and their attributes
+
+    w3 = get_web3_provider
+
+    # get a dictionary of all factories, and their attributes factory_address -> values
+    factories = get_deployed_factory(w3)
 
     print(factories)
 
-    for factory_address in factories.keys():
+    for factory_address, values in factories.items():
         try:
-            factory = interface.IUniswapV2Factory(factory_address)
+            factory = w3.eth.contract(address=factory_address, abi=values["fee_type"])
         except Exception as err:
             print(
-                f'"IUniswapV2Factory" failed on {active_network} network {factory} factory, with the following error:\n{err}'
+                f'"IUniswapV2Factory" failed in {factory} factory, with the following error:\n{err}'
             )
             bogus_addresses.append(
                 {
                     "factory": str(factory),
-                    "reason": f"interface.IUniswapV2Factory error on {str(active_network)}: {err}",
+                    "reason": f"interface.IUniswapV2Factory error: {err}",
                 }
             )
             continue
@@ -205,17 +231,19 @@ def main() -> None:
                     }
                 )
                 # if it's bogus, make it one of my addresses for comparison
-                tmp_lp_address = to_address(
+                tmp_lp_address = Web3.to_checksum_address(
                     "0x4AfA03ED8ca5972404b6bDC16Bea62b77Cf9571b"
                 )
                 pairs["0x4AfA03ED8ca5972404b6bDC16Bea62b77Cf9571b"] = False
             ## Get dict of pool data, if tmp_lp_address isn't bogus, i.e., has been made one of my addresses
-            if tmp_lp_address != to_address(
+            if tmp_lp_address != Web3.to_checksum_address(
                 "0x4AfA03ED8ca5972404b6bDC16Bea62b77Cf9571b"
             ):
-                pairs[tmp_lp_address] = get_pool_data(
-                    tmp_lp_address, factories[factory_address]
-                )
+                pairs[Web3.to_checksum_address(tmp_lp_address)] = get_pool_data(
+                    Web3.to_checksum_address(tmp_lp_address),
+                    factories[factory_address],
+                    w3,
+                )  # factories is a dict of factory_address -> factory values (num_pools, router, fee_type, solidly, etc.)
             #####
             # Check for errors with either LP, token0 or token1
             #####
