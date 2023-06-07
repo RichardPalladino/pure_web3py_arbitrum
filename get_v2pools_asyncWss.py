@@ -62,6 +62,7 @@ FACTORY_ABI[
 ] = '[{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint8","name":"version","type":"uint8"}],"name":"Initialized","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"token0","type":"address"},{"indexed":true,"internalType":"address","name":"token1","type":"address"},{"indexed":false,"internalType":"bool","name":"stable","type":"bool"},{"indexed":false,"internalType":"address","name":"pair","type":"address"},{"indexed":false,"internalType":"uint256","name":"","type":"uint256"}],"name":"PairCreated","type":"event"},{"inputs":[],"name":"MAX_FEE","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"acceptFeeManager","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"acceptPauser","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"allPairs","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"allPairsLength","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"tokenA","type":"address"},{"internalType":"address","name":"tokenB","type":"address"},{"internalType":"bool","name":"stable","type":"bool"}],"name":"createPair","outputs":[{"internalType":"address","name":"pair","type":"address"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"feeManager","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"bool","name":"_stable","type":"bool"}],"name":"getFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"address","name":"","type":"address"},{"internalType":"bool","name":"","type":"bool"}],"name":"getPair","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_proxyAdmin","type":"address"},{"internalType":"address","name":"_pairImplementation","type":"address"},{"internalType":"address","name":"_voter","type":"address"},{"internalType":"address","name":"msig","type":"address"}],"name":"initialize","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"isPair","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"isPaused","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"pairCodeHash","outputs":[{"internalType":"bytes32","name":"","type":"bytes32"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"pairFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"pairImplementation","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"pauser","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"pendingFeeManager","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"pendingPauser","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"proxyAdmin","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"bool","name":"_stable","type":"bool"},{"internalType":"uint256","name":"_fee","type":"uint256"}],"name":"setFee","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_feeManager","type":"address"}],"name":"setFeeManager","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_implementation","type":"address"}],"name":"setImplementation","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_pair","type":"address"},{"internalType":"uint256","name":"_fee","type":"uint256"}],"name":"setPairFee","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"bool","name":"_state","type":"bool"}],"name":"setPause","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_pauser","type":"address"}],"name":"setPauser","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"stableFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"volatileFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"voter","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"}]'
 
 bogus_addresses = []
+pairs = {}
 # solidly_forks = {}  # factory -> isStable, stableSwap bools
 
 
@@ -88,7 +89,74 @@ def get_ipc_provider():
     return Web3(Web3.IPCProvider(IPC_PATH))
 
 
-def get_deployed_factory(w3) -> dict:
+async def async_get_factory(w3, tmp_dict):
+    global bogus_addresses
+    for dex in tmp_dict:
+        values = tmp_dict[dex]
+        print(f"{dex} has {str(values)} values")
+        factory_address = str(values["factory"])
+        try:
+            factory = w3.eth.contract(address=values["factory"], abi=FACTORY_ABI[0])
+        except Exception as err:
+            print(
+                f"get_deployed_factories failed to build factory contract with {err} error"
+            )
+        try:
+            length = await factory.functions.allPairsLength().call()
+            print(f"{dex} has a length of {length}")
+            result_dict = {
+                "factory": factory_address,
+                "length": length,
+                "fee_type": values["fee_type"],
+            }
+        except Exception as err:
+            print(
+                f'Function "allPairsLength()" failed on {dex} factory, with the following error:\n{err}'
+            )
+            bogus_addresses.append(
+                {
+                    "factory": factory_address,
+                    "reason": f'interface.IUniswapV2Factory failure with {values["factory"]} factory and error "{err}"',
+                }
+            )
+        try:
+            if values["fee_type"] == 0:
+                result_dict["max_fee"] = values["max_fee"]
+            if values["solidly"]:
+                if values["stableSwap"]:
+                    result_dict["stable_swap"] = 2
+                else:
+                    result_dict["stable_swap"] = 1
+            else:
+                result_dict["stable_swap"] = 0
+        except Exception as err:
+            print(f"Building {dex} factory dict failed with {err} error")
+    return result_dict
+
+
+async def get_pool_address(i, factory):
+    global bogus_addresses
+
+    factory_address = factory.address()
+
+    try:
+        tmp_lp_address = await factory.functions.allPairs(i).call()
+        return tmp_lp_address
+    except Exception as err:
+        print(
+            f"Received the following error when querying {factory_address} allPairs() at index {i}:\n  {err}"
+        )
+        bogus_addresses.append(
+            {
+                "factory": str(factory_address),
+                "index": str(i),
+                "reason": f'Error querying "factory.allpairs()": {err}',
+            }
+        )
+        return False
+
+
+def get_deployed_factories(w3) -> dict:
     global bogus_addresses
     factories = {}
 
@@ -106,7 +174,7 @@ def get_deployed_factory(w3) -> dict:
                 factory = w3.eth.contract(address=values["factory"], abi=FACTORY_ABI[0])
             except Exception as err:
                 print(
-                    f"get_deployed_factory failed to build factory contract with {err} error"
+                    f"get_deployed_factories failed to build factory contract with {err} error"
                 )
             try:
                 length = factory.functions.allPairsLength().call()
@@ -267,24 +335,38 @@ def get_erc20_data(_address, _w3) -> dict:
         return result
 
 
-def main() -> None:
+async def main() -> None:
     global bogus_addresses
+    global pairs
+
+    pairs["0x4AfA03ED8ca5972404b6bDC16Bea62b77Cf9571b"] = False
 
     start_time = perf_counter()
     factory_lps = {}
-    pairs = {}
     erc_20s = {}
+    factories = {}
 
-    w3 = get_web3_provider()
+    w3 = get_async_web3_provider()
+    sync_w3 = get_web3_provider()
 
     # get a dictionary of all factories, and their attributes factory_address -> values
-    factories = get_deployed_factory(w3)
+    # load factory dict
+    with open("dexs.json", "r") as dex_file:
+        factories_dict = json.load(dex_file)
+
+    # fact_dict is a list of factory dictionaries
+    for factory in asyncio.as_completed(
+        [async_get_factory(w3, fact_dict) for fact_dict in factories_dict]
+    ):
+        result = await factory
+        factories[result["factory"]] = result
+        # factories = get_deployed_factories(w3)
 
     print(factories)
 
-    for factory_address, values in factories.items():
+    for factory_address, factory_values in factories.items():
         try:
-            if (values["fee_type"] == 4) or (values["fee_type"] == 7):
+            if (factory_values["fee_type"] == 4) or (factory_values["fee_type"] == 7):
                 tmp_abi = FACTORY_ABI[4]
             else:
                 tmp_abi = FACTORY_ABI[0]
@@ -304,34 +386,26 @@ def main() -> None:
         num_pools = factories[factory_address]["length"]
         pool_ticker = 0
         # Loop through each LP listed in the Factory
-        for i in range(0, num_pools):
-            try:
-                tmp_lp_address = factory.functions.allPairs(i).call()
-            except Exception as err:
-                print(
-                    f"Received the following error when querying {factory_address} allPairs() at index {i}:\n  {err}"
-                )
-                bogus_addresses.append(
-                    {
-                        "factory": str(factory_address),
-                        "index": str(i),
-                        "reason": f'Error querying "factory.allpairs()": {err}',
-                    }
-                )
-                # if it's bogus, make it one of my addresses for comparison
-                tmp_lp_address = Web3.to_checksum_address(
-                    "0x4AfA03ED8ca5972404b6bDC16Bea62b77Cf9571b"
-                )
-                pairs["0x4AfA03ED8ca5972404b6bDC16Bea62b77Cf9571b"] = False
-            ## Get dict of pool data, if tmp_lp_address isn't bogus, i.e., has been made one of my addresses
-            if tmp_lp_address != Web3.to_checksum_address(
-                "0x4AfA03ED8ca5972404b6bDC16Bea62b77Cf9571b"
+        factory_pools = []
+        for result in asyncio.as_completed(
+            [get_pool_address(i, factory) for i in range(0, num_pools)]
+        ):
+            pool_address = await result
+            if (
+                (not (pool_address is None))
+                and (pool_address != False)
+                and (type(pool_address) != None)
             ):
-                pairs[Web3.to_checksum_address(tmp_lp_address)] = get_pool_data(
-                    Web3.to_checksum_address(tmp_lp_address),
-                    factories[factory_address],
-                    w3,
-                )  # factories is a dict of factory_address -> factory values (num_pools, router, fee_type, solidly, etc.)
+                factory_pools.append(pool_address)
+            else:
+                print(f"{pool_address} is None or False")
+        for tmp_lp_address in factory_pools:
+            ## Get dict of pool data, if tmp_lp_address isn't bogus, i.e., has been made one of my addresses
+            pairs[Web3.to_checksum_address(tmp_lp_address)] = get_pool_data(
+                Web3.to_checksum_address(tmp_lp_address),
+                factories[factory_address],
+                sync_w3,
+            )  # factories is a dict of factory_address -> factory values (num_pools, router, fee_type, solidly, etc.)
             #####
             # Check for errors with either LP, token0 or token1
             #####
@@ -341,7 +415,7 @@ def main() -> None:
                 bogus_addresses.append(
                     {
                         "lp_address": str(tmp_lp_address),
-                        "reason": f"either get_pool_data() failure or one of the tokens is bad",
+                        "reason": f"get_pool_data() failure",
                     }
                 )
                 continue
@@ -360,7 +434,7 @@ def main() -> None:
                         }
                     else:
                         # try again?
-                        tmp_token = get_erc20_data(token0_address, w3)
+                        tmp_token = get_erc20_data(token0_address, sync_w3)
                         # If querying the blockchain returns None for the pool, there was an error
                         if (tmp_token is None) or (tmp_token == False):
                             erc_20s[token0_address] = False
@@ -385,7 +459,7 @@ def main() -> None:
 
                 else:
                     # If we haven't already populated the pool data, query the blockchain to get it
-                    tmp_token = get_erc20_data(token0_address, w3)
+                    tmp_token = get_erc20_data(token0_address, sync_w3)
                     # If querying the blockchain returns None for the pool, there was an error
                     if (tmp_token is None) or (tmp_token == False):
                         erc_20s[token0_address] = False
@@ -420,7 +494,7 @@ def main() -> None:
                         else:
                             # if the token is False, the entire pool is false, right?
                             # try again
-                            tmp_token = get_erc20_data(token1_address, w3)
+                            tmp_token = get_erc20_data(token1_address, sync_w3)
                             if (tmp_token is None) or (tmp_token == False):
                                 erc_20s[token1_address] = False
                                 pairs[tmp_lp_address] = False
@@ -434,7 +508,6 @@ def main() -> None:
                                         "dex_factory": str(factory_address),
                                     }
                                 )
-
                                 continue
                             else:
                                 erc_20s[token1_address] = tmp_token
@@ -442,9 +515,8 @@ def main() -> None:
                                     "address": token1_address,
                                     **tmp_token,
                                 }
-
                     else:
-                        tmp_token = get_erc20_data(token1_address, w3)
+                        tmp_token = get_erc20_data(token1_address, sync_w3)
                         if (tmp_token is None) or (tmp_token == False):
                             erc_20s[token1_address] = False
                             pairs[tmp_lp_address] = False
@@ -458,7 +530,6 @@ def main() -> None:
                                     "dex_factory": str(factory_address),
                                 }
                             )
-
                             continue
                         else:
                             erc_20s[token1_address] = tmp_token
@@ -527,4 +598,8 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        asyncio.run(main())
+    except (Exception, KeyboardInterrupt) as e:
+        print("ERROR", str(e))
+        exit()
