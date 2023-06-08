@@ -52,3 +52,8 @@ I converted get_v2pools_threadPool.py to something that could run using v5 of we
 
 I was hoping PyPy's efficiencies would help make use of the local node even faster.  Super disappointing, but at the same time it's nice to know that I don't have to make things more complicated for optimal speed.
 
+### Pyston (running on Python3.10)
+
+I installed Pyston-Lite on the highest version of Python that it currently is compatible with (3.10).
+
+* get_v2pools_threadPool:                       5.81 minutes
