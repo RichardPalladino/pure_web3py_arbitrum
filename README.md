@@ -31,3 +31,12 @@ I've been pivoting back to pure web3.py lately, and I may even breakout the Hard
 * There is a sweet-spot where concurrency helps with certain IO operations and is not over-applied.
 * Threadpools and asyncio both have overhead, so use should be deliberate and not liberal.
 * IPC is always fastest.
+
+### PyPy:
+
+Install on Ubuntu with:
+
+`sudo add-apt-repository ppa:pypy/ppa
+sudo apt update
+sudo apt install pypy3`
+
