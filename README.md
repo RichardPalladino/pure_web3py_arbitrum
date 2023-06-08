@@ -13,7 +13,7 @@ I've been pivoting back to pure web3.py lately, and I may even breakout the Hard
 * Play with the performance of each of these basic provider types using different multi-threaded and/or concurrency methods to see if any one in particular works best.
 * Test the scripts with Python v3.11, PyPy, and Pyston (both full and lite versions) to see if there are any compatability issues with web3.py or my async/multi-threaded tests.
 
-### Average runtime in my environment:
+### Average runtime in my environment (using Python 3.11):
 
 * Vanilla / template version:                   7.78 minutes
 * get_v2pools_asyncHttp:                        7.30 minutes
@@ -36,7 +36,19 @@ I've been pivoting back to pure web3.py lately, and I may even breakout the Hard
 
 Install on Ubuntu with:
 
-`sudo add-apt-repository ppa:pypy/ppa
-sudo apt update
-sudo apt install pypy3`
+    `sudo add-apt-repository ppa:pypy/ppa
+    sudo apt update
+    sudo apt install pypy3`
+
+Install pip, web3, and dotenv:
+* `curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py` and run it with pip3
+* `pypy3 -m pip install web3` <--- didn't work
+* `pypy3 -m pip install python-dotenv`
+* `pypy3 -m pip install --only-binary :all: web3` <--- works but installs older version - 5.6
+
+I converted get_v2pools_threadPool.py to something that could run using v5 of web3.py module by simply changing one camel-cased call (i.e., "is_connected()" in v.6 to "isConnected()" for v.5).
+
+* pypy-get_v2pools_threadPool:                83 minutes  !!!!!!!!!
+
+I was hoping PyPy's efficiencies would help make use of the local node even faster.  Super disappointing, but at the same time it's nice to know that I don't have to make things more complicated for optimal speed.
 
