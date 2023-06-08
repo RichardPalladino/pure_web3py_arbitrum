@@ -1,11 +1,11 @@
 from time import perf_counter
-import asyncio
+import concurrent.futures
 import json
 import os
 
 # import requests
 from dotenv import load_dotenv
-from web3 import Web3, AsyncWeb3, AsyncHTTPProvider
+from web3 import Web3
 
 load_dotenv("./.env")
 
@@ -59,8 +59,13 @@ FACTORY_ABI[
     4
 ] = '[{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint8","name":"version","type":"uint8"}],"name":"Initialized","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"token0","type":"address"},{"indexed":true,"internalType":"address","name":"token1","type":"address"},{"indexed":false,"internalType":"bool","name":"stable","type":"bool"},{"indexed":false,"internalType":"address","name":"pair","type":"address"},{"indexed":false,"internalType":"uint256","name":"","type":"uint256"}],"name":"PairCreated","type":"event"},{"inputs":[],"name":"MAX_FEE","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"acceptFeeManager","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"acceptPauser","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"allPairs","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"allPairsLength","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"tokenA","type":"address"},{"internalType":"address","name":"tokenB","type":"address"},{"internalType":"bool","name":"stable","type":"bool"}],"name":"createPair","outputs":[{"internalType":"address","name":"pair","type":"address"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"feeManager","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"bool","name":"_stable","type":"bool"}],"name":"getFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"address","name":"","type":"address"},{"internalType":"bool","name":"","type":"bool"}],"name":"getPair","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_proxyAdmin","type":"address"},{"internalType":"address","name":"_pairImplementation","type":"address"},{"internalType":"address","name":"_voter","type":"address"},{"internalType":"address","name":"msig","type":"address"}],"name":"initialize","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"isPair","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"isPaused","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"pairCodeHash","outputs":[{"internalType":"bytes32","name":"","type":"bytes32"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"pairFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"pairImplementation","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"pauser","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"pendingFeeManager","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"pendingPauser","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"proxyAdmin","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"bool","name":"_stable","type":"bool"},{"internalType":"uint256","name":"_fee","type":"uint256"}],"name":"setFee","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_feeManager","type":"address"}],"name":"setFeeManager","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_implementation","type":"address"}],"name":"setImplementation","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_pair","type":"address"},{"internalType":"uint256","name":"_fee","type":"uint256"}],"name":"setPairFee","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"bool","name":"_state","type":"bool"}],"name":"setPause","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_pauser","type":"address"}],"name":"setPauser","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"stableFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"volatileFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"voter","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"}]'
 
+# global variables
 bogus_addresses = []
 pairs = {}
+factory_lps = {}
+erc_20s = {}
+factories = {}
+
 # solidly_forks = {}  # factory -> isStable, stableSwap bools
 
 
@@ -69,10 +74,6 @@ def serialize_sets(obj):  # so JSON can handle sets
         return list(obj)
 
     return obj
-
-
-def get_async_web3_provider():
-    return AsyncWeb3(AsyncHTTPProvider(W3_HTTP_PROVIDER))
 
 
 def get_web3_provider():
@@ -87,7 +88,7 @@ def get_ipc_provider():
     return Web3(Web3.IPCProvider(IPC_PATH))
 
 
-async def async_get_factory(w3, tmp_dict):
+def get_factory(w3, tmp_dict):
     global bogus_addresses
     for dex in tmp_dict:
         values = tmp_dict[dex]
@@ -100,7 +101,7 @@ async def async_get_factory(w3, tmp_dict):
                 f"get_deployed_factories failed to build factory contract with {err} error"
             )
         try:
-            length = await factory.functions.allPairsLength().call()
+            length = factory.functions.allPairsLength().call()
             print(f"{dex} has a length of {length}")
             result_dict = {
                 "factory": factory_address,
@@ -132,13 +133,13 @@ async def async_get_factory(w3, tmp_dict):
     return result_dict
 
 
-async def get_pool_address(i, factory):
+def get_pool_address(i, factory):
     global bogus_addresses
 
     factory_address = factory.address
 
     try:
-        tmp_lp_address = await factory.functions.allPairs(i).call()
+        tmp_lp_address = factory.functions.allPairs(i).call()
         return tmp_lp_address
     except Exception as err:
         print(
@@ -337,36 +338,213 @@ def get_erc20_data(_address, _w3) -> dict:
         return result
 
 
-async def main() -> None:
+def build_pool(tmp_lp_address, factory_address, ws):
+    global factories
+    global pairs
+    global erc_20s
+    ## Get dict of pool data, if tmp_lp_address isn't bogus, i.e., has been made one of my addresses
+    pairs[tmp_lp_address] = get_pool_data(
+        tmp_lp_address,
+        factories[factory_address],
+        ws,
+    )  # factories is a dict of factory_address -> factory values (num_pools, router, fee_type, solidly, etc.)
+    #####
+    # Check for errors with either LP, token0 or token1
+    #####
+    if (pairs[tmp_lp_address] is None) or (pairs[tmp_lp_address] == False):
+        pairs[tmp_lp_address] = False
+        print(f"LP {tmp_lp_address} is invalid")
+        bogus_addresses.append(
+            {
+                "lp_address": str(tmp_lp_address),
+                "reason": f"get_pool_data() failure",
+            }
+        )
+        return False
+    else:
+        pairs[tmp_lp_address]["factory_address"] = factory_address
+        ## Add dicts of each token data
+        # Token0
+        token0_address = pairs[tmp_lp_address]["tokens"][0]
+        # Reduce direct blockchain calls, check if we've already populated the token data
+        if token0_address in erc_20s.keys():
+            # Make sure the pool has been found and does not return an error
+            if erc_20s[token0_address] != False:
+                pairs[tmp_lp_address]["token0"] = {
+                    "address": token0_address,
+                    **erc_20s[token0_address],
+                }
+            else:
+                # try again?
+                tmp_token = get_erc20_data(token0_address, ws)
+                # If querying the blockchain returns None for the pool, there was an error
+                if (tmp_token is None) or (tmp_token == False):
+                    erc_20s[token0_address] = False
+                    pairs[tmp_lp_address] = False
+                    print(
+                        f"{tmp_lp_address} is invalid because {token0_address} was tracked as False and returned None again"
+                    )
+                    bogus_addresses.append(
+                        {
+                            "invalid_erc20": str(token0_address),
+                            "lp_address": str(tmp_lp_address),
+                            "dex_factory": str(factory_address),
+                        }
+                    )
+                    return False
+                else:
+                    erc_20s[token0_address] = tmp_token
+                    pairs[tmp_lp_address]["token0"] = {
+                        "address": token0_address,
+                        **tmp_token,
+                    }
+
+        else:
+            # If we haven't already populated the pool data, query the blockchain to get it
+            tmp_token = get_erc20_data(token0_address, ws)
+            # If querying the blockchain returns None for the pool, there was an error
+            if (tmp_token is None) or (tmp_token == False):
+                erc_20s[token0_address] = False
+                pairs[tmp_lp_address] = False
+                print(
+                    f"{tmp_lp_address} is invalid because {token0_address} returned none or False"
+                )
+                bogus_addresses.append(
+                    {
+                        "invalid_erc20": str(token0_address),
+                        "lp_address": str(tmp_lp_address),
+                        "dex_factory": str(factory_address),
+                    }
+                )
+                return False
+            else:
+                erc_20s[token0_address] = tmp_token
+                pairs[tmp_lp_address]["token0"] = {
+                    "address": token0_address,
+                    **tmp_token,
+                }
+
+        # Same for token1 as token0, above
+        if pairs[tmp_lp_address] != False:
+            token1_address = pairs[tmp_lp_address]["tokens"][1]
+            if token1_address in erc_20s.keys():
+                if erc_20s[token1_address] != False:
+                    pairs[tmp_lp_address]["token1"] = {
+                        "address": token1_address,
+                        **erc_20s[token1_address],
+                    }
+                else:
+                    # if the token is False, the entire pool is false, right?
+                    # try again
+                    tmp_token = get_erc20_data(token1_address, ws)
+                    if (tmp_token is None) or (tmp_token == False):
+                        erc_20s[token1_address] = False
+                        pairs[tmp_lp_address] = False
+                        print(
+                            f"{tmp_lp_address} invalid because {token1_address} is tracked as False and returned None"
+                        )
+                        bogus_addresses.append(
+                            {
+                                "invalid_erc20": str(token1_address),
+                                "lp_address": str(tmp_lp_address),
+                                "dex_factory": str(factory_address),
+                            }
+                        )
+                        return False
+                    else:
+                        erc_20s[token1_address] = tmp_token
+                        pairs[tmp_lp_address]["token1"] = {
+                            "address": token1_address,
+                            **tmp_token,
+                        }
+            else:
+                tmp_token = get_erc20_data(token1_address, ws)
+                if (tmp_token is None) or (tmp_token == False):
+                    erc_20s[token1_address] = False
+                    pairs[tmp_lp_address] = False
+                    print(
+                        f"{tmp_lp_address} is invalid because {token1_address} returned none or False"
+                    )
+                    bogus_addresses.append(
+                        {
+                            "invalid_erc20": str(token1_address),
+                            "lp_address": str(tmp_lp_address),
+                            "dex_factory": str(factory_address),
+                        }
+                    )
+                    return False
+                else:
+                    erc_20s[token1_address] = tmp_token
+                    pairs[tmp_lp_address]["token1"] = {
+                        "address": token1_address,
+                        **tmp_token,
+                    }
+
+        # If either tokens returns an error, set the LP dictionary to False
+        if (
+            (erc_20s[token0_address] == False)
+            or (erc_20s[token0_address] == False)
+            or (pairs[tmp_lp_address] == False)
+        ):
+            pairs[tmp_lp_address] = False
+            print(f"One of the tokens in {tmp_lp_address} is invalid, LP is invalid")
+            return False
+        elif ("token0" not in pairs[tmp_lp_address]) or (
+            "token1" not in pairs[tmp_lp_address]
+        ):
+            pairs[tmp_lp_address] = False
+            print(f"Missing one of the tokens in {tmp_lp_address}")
+            return False
+        else:
+            # if the liquidity is excessively low, set the LP dictionary to false
+            if (
+                pairs[tmp_lp_address]["reserves"][0]
+                / (10 ** pairs[tmp_lp_address]["token0"]["decimals"])
+            ) < 1 or (
+                pairs[tmp_lp_address]["reserves"][1]
+                / (10 ** pairs[tmp_lp_address]["token1"]["decimals"])
+            ) < 1:
+                print(f"{tmp_lp_address} has too little reserves")
+                bogus_addresses.append(
+                    {
+                        "lp_address": str(tmp_lp_address),
+                        "reason": "low reserves",
+                    }
+                )
+                pairs[tmp_lp_address] = False
+            else:
+                return tmp_lp_address
+
+
+def main() -> None:
     global bogus_addresses
     global pairs
+    global factory_lps
+    global erc_20s
+    global factories
 
     pairs["0x4AfA03ED8ca5972404b6bDC16Bea62b77Cf9571b"] = False
 
     start_time = perf_counter()
-    factory_lps = {}
-    erc_20s = {}
-    factories = {}
 
-    w3 = get_async_web3_provider()
-    ipc = get_ipc_provider()
+    ws = get_wss_provider()
+    print(f"Websockets provider is_connected: {ws.is_connected()}")
 
     # get a dictionary of all factories, and their attributes factory_address -> values
     # load factory dict
     with open("dexs.json", "r") as dex_file:
         factories_dict = json.load(dex_file)
 
+    factory_results = []
     # fact_dict is a list of factory dictionaries
-    for factory in asyncio.as_completed(
-        [async_get_factory(w3, fact_dict) for fact_dict in factories_dict]
-    ):
-        result = await factory
-        factories[result["factory"]] = result
-        # factories = get_deployed_factories(w3)
+    with concurrent.futures.ThreadPoolExecutor() as pool_executor:
+        for fact_dict in factories_dict:
+            factory_results.append(pool_executor.submit(get_factory, *[ws, fact_dict]))
+        for fact_result in concurrent.futures.as_completed(factory_results):
+            tmp_result = fact_result.result()
+            factories[tmp_result["factory"]] = tmp_result
 
     print(factories)
-
-    print(f"IPC provider is_connected: {ipc.is_connected()}")
 
     for factory_address, factory_values in factories.items():
         try:
@@ -374,7 +552,7 @@ async def main() -> None:
                 tmp_abi = FACTORY_ABI[4]
             else:
                 tmp_abi = FACTORY_ABI[0]
-            factory = w3.eth.contract(address=factory_address, abi=tmp_abi)
+            factory = ws.eth.contract(address=factory_address, abi=tmp_abi)
         except Exception as err:
             print(
                 f'"IUniswapV2Factory" failed in {factory} factory, with the following error:\n{err}'
@@ -391,194 +569,33 @@ async def main() -> None:
         pool_ticker = 0
         # Loop through each LP listed in the Factory
         factory_pools = []
-        for result in asyncio.as_completed(
-            [get_pool_address(i, factory) for i in range(0, num_pools)]
-        ):
-            pool_address = await result
-            if (
-                (not (pool_address is None))
-                and (pool_address != False)
-                and (type(pool_address) != None)
-            ):
-                factory_pools.append(pool_address)
-            else:
-                print(f"{pool_address} is None or False")
-        for tmp_lp_address in factory_pools:
-            ## Get dict of pool data, if tmp_lp_address isn't bogus, i.e., has been made one of my addresses
-            pairs[Web3.to_checksum_address(tmp_lp_address)] = get_pool_data(
-                Web3.to_checksum_address(tmp_lp_address),
-                factories[factory_address],
-                ipc,
-            )  # factories is a dict of factory_address -> factory values (num_pools, router, fee_type, solidly, etc.)
-            #####
-            # Check for errors with either LP, token0 or token1
-            #####
-            if (pairs[tmp_lp_address] is None) or (pairs[tmp_lp_address] == False):
-                pairs[tmp_lp_address] = False
-                print(f"LP {tmp_lp_address} is invalid")
-                bogus_addresses.append(
-                    {
-                        "lp_address": str(tmp_lp_address),
-                        "reason": f"get_pool_data() failure",
-                    }
+        address_results = []
+        with concurrent.futures.ThreadPoolExecutor() as pool_executor:
+            for pool_index in range(0, num_pools):
+                address_results.append(
+                    pool_executor.submit(get_pool_address, *[pool_index, factory])
                 )
-                continue
-            else:
-                pairs[tmp_lp_address]["factory_address"] = factory_address
-                ## Add dicts of each token data
-                # Token0
-                token0_address = pairs[tmp_lp_address]["tokens"][0]
-                # Reduce direct blockchain calls, check if we've already populated the token data
-                if token0_address in erc_20s.keys():
-                    # Make sure the pool has been found and does not return an error
-                    if erc_20s[token0_address] != False:
-                        pairs[tmp_lp_address]["token0"] = {
-                            "address": token0_address,
-                            **erc_20s[token0_address],
-                        }
-                    else:
-                        # try again?
-                        tmp_token = get_erc20_data(token0_address, ipc)
-                        # If querying the blockchain returns None for the pool, there was an error
-                        if (tmp_token is None) or (tmp_token == False):
-                            erc_20s[token0_address] = False
-                            pairs[tmp_lp_address] = False
-                            print(
-                                f"{tmp_lp_address} is invalid because {token0_address} was tracked as False and returned None again"
-                            )
-                            bogus_addresses.append(
-                                {
-                                    "invalid_erc20": str(token0_address),
-                                    "lp_address": str(tmp_lp_address),
-                                    "dex_factory": str(factory_address),
-                                }
-                            )
-                            continue
-                        else:
-                            erc_20s[token0_address] = tmp_token
-                            pairs[tmp_lp_address]["token0"] = {
-                                "address": token0_address,
-                                **tmp_token,
-                            }
-
-                else:
-                    # If we haven't already populated the pool data, query the blockchain to get it
-                    tmp_token = get_erc20_data(token0_address, ipc)
-                    # If querying the blockchain returns None for the pool, there was an error
-                    if (tmp_token is None) or (tmp_token == False):
-                        erc_20s[token0_address] = False
-                        pairs[tmp_lp_address] = False
-                        print(
-                            f"{tmp_lp_address} is invalid because {token0_address} returned none or False"
-                        )
-                        bogus_addresses.append(
-                            {
-                                "invalid_erc20": str(token0_address),
-                                "lp_address": str(tmp_lp_address),
-                                "dex_factory": str(factory_address),
-                            }
-                        )
-                        continue
-                    else:
-                        erc_20s[token0_address] = tmp_token
-                        pairs[tmp_lp_address]["token0"] = {
-                            "address": token0_address,
-                            **tmp_token,
-                        }
-
-                # Same for token1 as token0, above
-                if pairs[tmp_lp_address] != False:
-                    token1_address = pairs[tmp_lp_address]["tokens"][1]
-                    if token1_address in erc_20s.keys():
-                        if erc_20s[token1_address] != False:
-                            pairs[tmp_lp_address]["token1"] = {
-                                "address": token1_address,
-                                **erc_20s[token1_address],
-                            }
-                        else:
-                            # if the token is False, the entire pool is false, right?
-                            # try again
-                            tmp_token = get_erc20_data(token1_address, ipc)
-                            if (tmp_token is None) or (tmp_token == False):
-                                erc_20s[token1_address] = False
-                                pairs[tmp_lp_address] = False
-                                print(
-                                    f"{tmp_lp_address} invalid because {token1_address} is tracked as False and returned None"
-                                )
-                                bogus_addresses.append(
-                                    {
-                                        "invalid_erc20": str(token1_address),
-                                        "lp_address": str(tmp_lp_address),
-                                        "dex_factory": str(factory_address),
-                                    }
-                                )
-                                continue
-                            else:
-                                erc_20s[token1_address] = tmp_token
-                                pairs[tmp_lp_address]["token1"] = {
-                                    "address": token1_address,
-                                    **tmp_token,
-                                }
-                    else:
-                        tmp_token = get_erc20_data(token1_address, ipc)
-                        if (tmp_token is None) or (tmp_token == False):
-                            erc_20s[token1_address] = False
-                            pairs[tmp_lp_address] = False
-                            print(
-                                f"{tmp_lp_address} is invalid because {token1_address} returned none or False"
-                            )
-                            bogus_addresses.append(
-                                {
-                                    "invalid_erc20": str(token1_address),
-                                    "lp_address": str(tmp_lp_address),
-                                    "dex_factory": str(factory_address),
-                                }
-                            )
-                            continue
-                        else:
-                            erc_20s[token1_address] = tmp_token
-                            pairs[tmp_lp_address]["token1"] = {
-                                "address": token1_address,
-                                **tmp_token,
-                            }
-
-                # If either tokens returns an error, set the LP dictionary to False
+            for pool_result in concurrent.futures.as_completed(address_results):
+                pool_address = pool_result.result()
                 if (
-                    (erc_20s[token0_address] == False)
-                    or (erc_20s[token0_address] == False)
-                    or (pairs[tmp_lp_address] == False)
+                    (not (pool_address is None))
+                    and (pool_address != False)
+                    and (type(pool_address) != None)
                 ):
-                    pairs[tmp_lp_address] = False
-                    print(
-                        f"One of the tokens in {tmp_lp_address} is invalid, LP is invalid"
-                    )
-                    continue
-                elif ("token0" not in pairs[tmp_lp_address]) or (
-                    "token1" not in pairs[tmp_lp_address]
-                ):
-                    pairs[tmp_lp_address] = False
-                    print(f"Missing one of the tokens in {tmp_lp_address}")
-                    continue
+                    factory_pools.append(pool_address)
                 else:
-                    # if the liquidity is excessively low, set the LP dictionary to false
-                    if (
-                        pairs[tmp_lp_address]["reserves"][0]
-                        / (10 ** pairs[tmp_lp_address]["token0"]["decimals"])
-                    ) < 1 or (
-                        pairs[tmp_lp_address]["reserves"][1]
-                        / (10 ** pairs[tmp_lp_address]["token1"]["decimals"])
-                    ) < 1:
-                        print(f"{tmp_lp_address} has too little reserves")
-                        bogus_addresses.append(
-                            {
-                                "lp_address": str(tmp_lp_address),
-                                "reason": "low reserves",
-                            }
-                        )
-                        pairs[tmp_lp_address] = False
-                    else:
-                        pool_ticker += 1
-                        factory_lps[factory_address].append(tmp_lp_address)
+                    print(f"{pool_address} is None or False")
+
+            built_pools = []
+            for lp_address in factory_pools:
+                built_pools.append(
+                    pool_executor.submit(build_pool, *[lp_address, factory_address, ws])
+                )
+            for built in concurrent.futures.as_completed(built_pools):
+                pool_result = built.result()
+                if pool_result != False:
+                    pool_ticker += 1
+                    factory_lps[factory_address].append(pool_result)
         # Close-out processing of the DEX / factory set
         print(
             f"{factory_address} currently has {pool_ticker} valid LPs out of {num_pools} total LPs"
@@ -602,8 +619,4 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except (Exception, KeyboardInterrupt) as e:
-        print("ERROR", str(e))
-        exit()
+    main()

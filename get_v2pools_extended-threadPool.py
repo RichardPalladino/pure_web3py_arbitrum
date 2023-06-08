@@ -1,11 +1,11 @@
 from time import perf_counter
-import asyncio
+import concurrent.futures
 import json
 import os
 
 # import requests
 from dotenv import load_dotenv
-from web3 import Web3, AsyncWeb3, AsyncHTTPProvider
+from web3 import Web3
 
 load_dotenv("./.env")
 
@@ -61,6 +61,9 @@ FACTORY_ABI[
 
 bogus_addresses = []
 pairs = {}
+factory_lps = {}
+erc_20s = {}
+factories = {}
 # solidly_forks = {}  # factory -> isStable, stableSwap bools
 
 
@@ -69,10 +72,6 @@ def serialize_sets(obj):  # so JSON can handle sets
         return list(obj)
 
     return obj
-
-
-def get_async_web3_provider():
-    return AsyncWeb3(AsyncHTTPProvider(W3_HTTP_PROVIDER))
 
 
 def get_web3_provider():
@@ -87,7 +86,7 @@ def get_ipc_provider():
     return Web3(Web3.IPCProvider(IPC_PATH))
 
 
-async def async_get_factory(w3, tmp_dict):
+def get_factory(w3, tmp_dict):
     global bogus_addresses
     for dex in tmp_dict:
         values = tmp_dict[dex]
@@ -100,7 +99,7 @@ async def async_get_factory(w3, tmp_dict):
                 f"get_deployed_factories failed to build factory contract with {err} error"
             )
         try:
-            length = await factory.functions.allPairsLength().call()
+            length = factory.functions.allPairsLength().call()
             print(f"{dex} has a length of {length}")
             result_dict = {
                 "factory": factory_address,
@@ -132,13 +131,13 @@ async def async_get_factory(w3, tmp_dict):
     return result_dict
 
 
-async def get_pool_address(i, factory):
+def get_pool_address(i, factory):
     global bogus_addresses
 
     factory_address = factory.address
 
     try:
-        tmp_lp_address = await factory.functions.allPairs(i).call()
+        tmp_lp_address = factory.functions.allPairs(i).call()
         return tmp_lp_address
     except Exception as err:
         print(
@@ -337,18 +336,41 @@ def get_erc20_data(_address, _w3) -> dict:
         return result
 
 
-async def main() -> None:
+def build_pool(tmp_lp_address, factory_address, ipc):
+    global factories
+    global pairs
+    global erc_20s
+    ## Get dict of pool data, if tmp_lp_address isn't bogus, i.e., has been made one of my addresses
+    pairs[tmp_lp_address] = get_pool_data(
+        tmp_lp_address,
+        factories[factory_address],
+        ipc,
+    )  # factories is a dict of factory_address -> factory values (num_pools, router, fee_type, solidly, etc.)
+    #####
+    # Check for errors with either LP, token0 or token1
+    #####
+    if (pairs[tmp_lp_address] is None) or (pairs[tmp_lp_address] == False):
+        pairs[tmp_lp_address] = False
+        print(f"LP {tmp_lp_address} is invalid")
+        bogus_addresses.append(
+            {
+                "lp_address": str(tmp_lp_address),
+                "reason": f"get_pool_data() failure",
+            }
+        )
+        return False
+    else:
+        return tmp_lp_address
+
+
+def main() -> None:
     global bogus_addresses
     global pairs
 
     pairs["0x4AfA03ED8ca5972404b6bDC16Bea62b77Cf9571b"] = False
 
     start_time = perf_counter()
-    factory_lps = {}
-    erc_20s = {}
-    factories = {}
 
-    w3 = get_async_web3_provider()
     ipc = get_ipc_provider()
 
     # get a dictionary of all factories, and their attributes factory_address -> values
@@ -356,13 +378,14 @@ async def main() -> None:
     with open("dexs.json", "r") as dex_file:
         factories_dict = json.load(dex_file)
 
+    factory_results = []
     # fact_dict is a list of factory dictionaries
-    for factory in asyncio.as_completed(
-        [async_get_factory(w3, fact_dict) for fact_dict in factories_dict]
-    ):
-        result = await factory
-        factories[result["factory"]] = result
-        # factories = get_deployed_factories(w3)
+    with concurrent.futures.ThreadPoolExecutor() as pool_executor:
+        for fact_dict in factories_dict:
+            factory_results.append(pool_executor.submit(get_factory, *[ipc, fact_dict]))
+        for fact_result in concurrent.futures.as_completed(factory_results):
+            tmp_result = fact_result.result()
+            factories[tmp_result["factory"]] = tmp_result
 
     print(factories)
 
@@ -374,7 +397,7 @@ async def main() -> None:
                 tmp_abi = FACTORY_ABI[4]
             else:
                 tmp_abi = FACTORY_ABI[0]
-            factory = w3.eth.contract(address=factory_address, abi=tmp_abi)
+            factory = ipc.eth.contract(address=factory_address, abi=tmp_abi)
         except Exception as err:
             print(
                 f'"IUniswapV2Factory" failed in {factory} factory, with the following error:\n{err}'
@@ -391,22 +414,40 @@ async def main() -> None:
         pool_ticker = 0
         # Loop through each LP listed in the Factory
         factory_pools = []
-        for result in asyncio.as_completed(
-            [get_pool_address(i, factory) for i in range(0, num_pools)]
-        ):
-            pool_address = await result
-            if (
-                (not (pool_address is None))
-                and (pool_address != False)
-                and (type(pool_address) != None)
-            ):
-                factory_pools.append(pool_address)
-            else:
-                print(f"{pool_address} is None or False")
-        for tmp_lp_address in factory_pools:
+        address_results = []
+        with concurrent.futures.ThreadPoolExecutor() as pool_executor:
+            for pool_index in range(0, num_pools):
+                address_results.append(
+                    pool_executor.submit(get_pool_address, *[pool_index, factory])
+                )
+            for pool_result in concurrent.futures.as_completed(address_results):
+                pool_address = pool_result.result()
+                if (
+                    (not (pool_address is None))
+                    and (pool_address != False)
+                    and (type(pool_address) != None)
+                ):
+                    factory_pools.append(pool_address)
+                else:
+                    print(f"{pool_address} is None or False")
+
+            built_pools = []
+            for lp_address in factory_pools:
+                built_pools.append(
+                    pool_executor.submit(
+                        build_pool, *[lp_address, factory_address, ipc]
+                    )
+                )
+            working_pools = []
+            for built in concurrent.futures.as_completed(built_pools):
+                pool_result = built.result()
+                if pool_result != False:
+                    working_pools.append(pool_result)
+
+        for tmp_lp_address in working_pools:
             ## Get dict of pool data, if tmp_lp_address isn't bogus, i.e., has been made one of my addresses
-            pairs[Web3.to_checksum_address(tmp_lp_address)] = get_pool_data(
-                Web3.to_checksum_address(tmp_lp_address),
+            pairs[tmp_lp_address] = get_pool_data(
+                tmp_lp_address,
                 factories[factory_address],
                 ipc,
             )  # factories is a dict of factory_address -> factory values (num_pools, router, fee_type, solidly, etc.)
@@ -602,8 +643,4 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except (Exception, KeyboardInterrupt) as e:
-        print("ERROR", str(e))
-        exit()
+    main()
