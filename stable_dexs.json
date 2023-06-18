@@ -1,0 +1,65 @@
+[
+  {
+    "camelot": {
+      "factory": "0x6EcCab422D763aC031210895C81787E87B43A652",
+      "solidly": true,
+      "stableSwap": true,
+      "fee_type": 1,
+      "router": "0xc873fEcbd354f5A56E00E710B90EF4201db2448d"
+    }
+  },
+  {
+    "ramses_exchange": {
+      "factory": "0xAAA20D08e59F6561f242b08513D36266C5A29415",
+      "solidly": true,
+      "stableSwap": false,
+      "fee_type": 3,
+      "router": "0xAAA87963EFeB6f7E0a2711F397663105Acb1805e"
+    }
+  },
+  {
+    "solid_lizard": {
+      "factory": "0x734d84631f00dC0d3FCD18b04b6cf42BFd407074",
+      "solidly": true,
+      "stableSwap": false,
+      "fee_type": 4,
+      "router": "0xF26515D5482e2C2FD237149bF6A653dA4794b3D0"
+    }
+  },
+  {
+    "3xcalibur": {
+      "factory": "0xD158bd9E8b6efd3ca76830B66715Aa2b7Bad2218",
+      "solidly": true,
+      "stableSwap": false,
+      "fee_type": 5,
+      "router": ""
+    }
+  },
+  {
+    "sterling_finance": {
+      "factory": "0xF7A23B9A9dCB8d0aff67012565C5844C20C11AFC",
+      "solidly": true,
+      "stableSwap": false,
+      "fee_type": 6,
+      "router": "0x0cBD3aEa90538a1Cf3C60B05582b691f6d2b2B01"
+    }
+  },
+  {
+    "chronos": {
+      "factory": "0xCe9240869391928253Ed9cc9Bcb8cb98CB5B0722",
+      "solidly": true,
+      "stableSwap": false,
+      "fee_type": 7,
+      "router": ""
+    }
+  },
+  {
+    "auragi": {
+      "factory": "0xa36b55DBe8e83Eb69C686368cF93ABC8A238CC5f",
+      "solidly": true,
+      "stableSwap": false,
+      "fee_type": 2,
+      "router": "0x0FaE1e44655ab06825966a8fCE87b9e988AB6170"
+    }
+  }
+]

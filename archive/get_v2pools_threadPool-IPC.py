@@ -523,7 +523,14 @@ def main() -> None:
     global erc_20s
     global factories
 
+    # BAD LPs / addresses
     pairs["0x4AfA03ED8ca5972404b6bDC16Bea62b77Cf9571b"] = False
+    # Low liquidity -  probably caused "Transfer Failed"
+    pairs["0x89c85841CCFBaFe9588150BBC7b911cE776FAB90"] = False
+    # fBomb has a tax
+    pairs["0xe3e757BC5Af026ae80095CDaace0B51a61f5e639"] = False
+    # fBomb has a tax
+    pairs["0xD46F8323E6E5540746E2df154cc1056907e89C7A"] = False
 
     start_time = perf_counter()
 
